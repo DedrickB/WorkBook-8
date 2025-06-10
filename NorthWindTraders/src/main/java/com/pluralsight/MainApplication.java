@@ -5,50 +5,84 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Scanner;
+
 
 public class MainApplication {
 
     public static void main(String[] args) {
         String dbUrl = "jdbc:mysql://localhost:3306/northwind";
-        String username = "root"; // e.g., "root" or a specific user for northwind
+        String username = "root"; // e.g., "root"
         String password = "KahootKing24"; // Your MySQL password
 
-        // The SQL query to select all products.
-        // We'll select ProductID and ProductName for this example.
-        String query = "SELECT ProductID, ProductName FROM Products ORDER BY ProductName";
+        // The SQL query to select required product details
+        String query = "SELECT ProductID, ProductName, UnitPrice, UnitsInStock FROM Products ORDER BY ProductID";
 
-        System.out.println("Connecting to Northwind database...");
+        Scanner scanner = new Scanner(System.in);
+        int displayOption = 0;
 
-        // Using try-with-resources to ensure database resources are closed automatically
+        // Get display option from user
+        while (true) {
+            System.out.println("\nSelect display format for products:");
+            System.out.println("1: Stacked Information (Product ID, Name, Price, Stock on separate lines)");
+            System.out.println("2: Rows of Information (Tabular format)");
+            System.out.print("Enter your choice (1 or 2): ");
+            if (scanner.hasNextInt()) {
+                displayOption = scanner.nextInt();
+                if (displayOption == 1 || displayOption == 2) {
+                    break;
+                } else {
+                    System.out.println("Invalid choice. Please enter 1 or 2.");
+                }
+            } else {
+                System.out.println("Invalid input. Please enter a number (1 or 2).");
+                scanner.next(); // Consume the invalid input
+            }
+        }
+        scanner.nextLine(); // Consume newline left-over
+
+        System.out.println("\nConnecting to Northwind database...");
+
         try {
-            // 1. Load the MySQL JDBC driver (optional for modern JDBC if JAR is in classpath,
-            // but good practice to include, especially for clarity and older systems).
-            // For MySQL Connector/J 8.0 and later, the driver class name is com.mysql.cj.jdbc.Driver
+            // 1. Load the MySQL JDBC driver
             Class.forName("com.mysql.cj.jdbc.Driver");
 
-            // 2. Establish the connection to the database
+            // 2. Establish the connection and execute query using try-with-resources
             try (Connection connection = DriverManager.getConnection(dbUrl, username, password);
-                 // 3. Create a statement object to execute SQL
                  Statement statement = connection.createStatement();
-                 // 4. Execute the query and get the result set
                  ResultSet resultSet = statement.executeQuery(query)) {
 
                 System.out.println("Successfully connected to the database.");
-                System.out.println("Fetching product names...");
+                System.out.println("Fetching product details...");
                 System.out.println("----------------------------------------");
-                System.out.println("Products from Northwind Traders:");
-                System.out.println("----------------------------------------");
+
+                if (displayOption == 2) { // Print header for tabular format
+                    System.out.printf("%-10s %-35s %-10s %-10s%n", "ID", "Name", "Price", "Stock");
+                    System.out.printf("%-10s %-35s %-10s %-10s%n", "----", "-----------------------------------", "----------", "----------");
+                }
 
                 int productCount = 0;
-                // 5. Process the result set
+                // 3. Process the result set
                 while (resultSet.next()) {
-                    // Retrieve data by column name (safer) or column index (faster but less readable)
-                    // int productId = resultSet.getInt("ProductID");
+                    int productId = resultSet.getInt("ProductID");
                     String productName = resultSet.getString("ProductName");
-
-                    // Display the product name
-                    System.out.println(productName);
+                    double unitPrice = resultSet.getDouble("UnitPrice");
+                    int unitsInStock = resultSet.getInt("UnitsInStock");
                     productCount++;
+
+                    if (displayOption == 1) { // Stacked Information
+                        System.out.println("Product Id: " + productId);
+                        System.out.println("Name: " + productName);
+                        System.out.printf("Price: %.2f%n", unitPrice); // Format price to 2 decimal places
+                        System.out.println("Stock: " + unitsInStock);
+                        System.out.println("------------------");
+                    } else { // displayOption == 2, Rows of Information
+                        System.out.printf("%-10d %-35s %-10.2f %-10d%n",
+                                productId,
+                                productName,
+                                unitPrice,
+                                unitsInStock);
+                    }
                 }
 
                 System.out.println("----------------------------------------");
@@ -58,28 +92,20 @@ public class MainApplication {
                     System.out.println("Total products displayed: " + productCount);
                 }
 
-            } // The Connection, Statement, and ResultSet are automatically closed here
-            // due to try-with-resources
+            } // Connection, Statement, and ResultSet are automatically closed here
 
         } catch (ClassNotFoundException e) {
-            // This error occurs if the JDBC driver JAR is not on the classpath
-            // or if the driver class name is incorrect.
             System.err.println("Error: MySQL JDBC Driver not found.");
             System.err.println("Please ensure the MySQL Connector/J dependency is correctly added to your pom.xml and loaded by Maven.");
             e.printStackTrace();
         } catch (SQLException e) {
-            // This error can occur for various reasons:
-            // - Database server is not running or not reachable.
-            // - Incorrect database URL, username, or password.
-            // - Insufficient user permissions.
-            // - SQL syntax errors in the query.
-            // - Network issues.
             System.err.println("Database Error: Could not connect to or query the database.");
             System.err.println("SQLState: " + e.getSQLState());
             System.err.println("Error Code: " + e.getErrorCode());
             System.err.println("Message: " + e.getMessage());
-            System.err.println("Check your database connection details, server status, and query.");
             e.printStackTrace();
+        } finally {
+            scanner.close(); // Close the scanner
         }
-    } 
+    }
 }
